@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weekly Meeting Schedule</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy:   #1E3A5F;
+    --blue:   #2C4F7A;
+    --bg:     #F5F5F3;
+    --surface:#FFFFFF;
+    --border: rgba(0,0,0,0.10);
+    --text:   #1a1a18;
+    --muted:  #5F5E5A;
+    --hint:   #888780;
+    --info-bg:#E6F1FB; --info-fg:#0C447C;
+    --warn-bg:#FAEEDA; --warn-fg:#633806;
+    --done-bg:#F1EFE8; --done-fg:#888780;
+    --cur-bg: #D6E8FB;
+    --r-md:   8px;
+    --r-lg:   12px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  nav { background: var(--navy); padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; height: 54px; }
+  .nav-title { color: #fff; font-size: 15px; font-weight: 500; }
+  .nav-sub { color: rgba(255,255,255,0.55); font-size: 12px; }
+  .refresh-btn { background: rgba(255,255,255,0.12); border: 0.5px solid rgba(255,255,255,0.25); color: #fff; border-radius: var(--r-md); padding: 6px 14px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .refresh-btn:hover { background: rgba(255,255,255,0.2); }
+
+  /* LAYOUT */
+  main { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+  /* CARD */
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 1.25rem; margin-bottom: 1rem; }
+  .card-label { font-size: 11px; font-weight: 500; color: var(--hint); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 1rem; }
+
+  /* HERO */
+  .hero { text-align: center; padding: 2rem 1rem; }
+  .hero-eyebrow { font-size: 11px; font-weight: 500; color: var(--hint); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.5rem; }
+  .hero-group { font-size: 28px; font-weight: 500; margin-bottom: 0.3rem; }
+  .hero-date { font-size: 14px; color: var(--muted); margin-bottom: 1.5rem; }
+  .hero-members { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .member-block { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .av { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .av-sm { width: 26px; height: 26px; font-size: 10px; }
+  .av-name { font-size: 11px; color: var(--muted); }
+
+  /* GROUP CARDS */
+  .groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 1rem; }
+  .gcard { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-lg); padding: 1rem; }
+  .gcard.is-now { border: 2px solid #378ADD; }
+  .gcard-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+  .gcard-name { font-size: 13px; font-weight: 500; }
+  .gcard-count { font-size: 11px; color: var(--hint); margin-top: 2px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 5px; }
+  .pill { display: flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 8px 2px 4px; font-size: 11px; }
+
+  /* BADGE */
+  .badge { display: inline-flex; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+  .b-now  { background: var(--info-bg); color: var(--info-fg); }
+  .b-next { background: var(--warn-bg); color: var(--warn-fg); }
+  .b-done { background: var(--done-bg); color: var(--done-fg); }
+
+  /* TIMELINE */
+  .tl-item { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: var(--r-md); }
+  .tl-item.tl-cur { background: var(--cur-bg); }
+  .tl-item.tl-past { opacity: 0.42; }
+  .tl-wk   { font-size: 11px; color: var(--hint); min-width: 30px; }
+  .tl-date { font-size: 12px; color: var(--muted); min-width: 130px; }
+  .tl-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .tl-name { font-size: 13px; font-weight: 500; flex: 1; }
+  .tl-note { font-size: 11px; color: var(--muted); font-style: italic; margin-left: 4px; }
+  .tl-sep  { height: 0.5px; background: var(--border); margin: 2px 10px; }
+
+  /* LOADING / ERROR */
+  .state-box { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+  .state-box .icon { font-size: 32px; margin-bottom: 0.75rem; }
+  .state-box p { font-size: 14px; line-height: 1.6; }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: #378ADD; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* FOOTER */
+  .footer { text-align: center; font-size: 11px; color: var(--hint); margin-top: 2rem; }
+  .last-updated { font-size: 11px; color: var(--hint); text-align: right; margin-bottom: 0.5rem; }
+
+  /* ADMIN MODAL */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--surface); border-radius: var(--r-lg); padding: 2rem; width: 100%; max-width: 360px; margin: 1rem; }
+  .modal h2 { font-size: 17px; font-weight: 500; margin-bottom: 0.4rem; }
+  .modal p  { font-size: 13px; color: var(--muted); margin-bottom: 1.25rem; line-height: 1.5; }
+  .modal input { width: 100%; padding: 9px 12px; border: 0.5px solid var(--border); border-radius: var(--r-md); font-size: 14px; font-family: inherit; margin-bottom: 0.75rem; }
+  .modal input:focus { outline: none; border-color: #378ADD; }
+  .modal-btns { display: flex; gap: 8px; }
+  .btn { padding: 8px 16px; border-radius: var(--r-md); border: 0.5px solid var(--border); background: transparent; font-size: 13px; cursor: pointer; font-family: inherit; color: var(--text); }
+  .btn:hover { background: var(--bg); }
+  .btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .btn-primary:hover { background: var(--blue); }
+  .err-msg { color: #A32D2D; font-size: 12px; margin-bottom: 0.5rem; display: none; }
+
+  .admin-bar { background: var(--warn-bg); border: 0.5px solid #BA7517; border-radius: var(--r-md); padding: 10px 16px; font-size: 13px; color: var(--warn-fg); display: none; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .admin-bar.show { display: flex; }
+  .sheets-link { color: #185FA5; text-decoration: none; font-weight: 500; font-size: 13px; }
+  .sheets-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div>
+    <div class="nav-title">Weekly Meeting Schedule</div>
+    <div class="nav-sub">Every Wednesday</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="refresh-btn" onclick="loadData()">Refresh</button>
+    <button class="refresh-btn" onclick="openAdmin()">Admin</button>
+  </div>
+</nav>
+
+<main>
+  <div class="admin-bar" id="admin-bar">
+    <span>Admin mode — changes go in Google Sheets</span>
+    <a class="sheets-link" id="sheets-link" href="#" target="_blank">Open Google Sheets →</a>
+  </div>
+
+  <div id="app">
+    <div class="card">
+      <div class="state-box">
+        <div class="spinner"></div>
+        <p>Loading schedule...</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer" id="footer"></div>
+</main>
+
+<!-- ADMIN MODAL -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2>Admin access</h2>
+    <p>Sign in to get a direct link to the Google Sheet where you can update the schedule.</p>
+    <input type="password" id="pw" placeholder="Password" onkeydown="if(event.key==='Enter')tryLogin()" />
+    <div class="err-msg" id="err">Incorrect password.</div>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="tryLogin()">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+//  CONFIGURATION — fill these in after setup
+// ─────────────────────────────────────────────────────────────────
+const CSV_URL      = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT38bdQCBzp3wQD32ZAsXnn2FL5P5qXIgNbYZE6z7pQMLp7w2XIVuXYlj6dkWzzVg/pub?gid=670211778&single=true&output=csv";
+const SHEETS_URL   = "https://docs.google.com/spreadsheets/d/1BLKm081biJcGOQHjbX6U4c9m5ekx41JM/edit?gid=670211778#gid=670211778";
+const ADMIN_PASS   = "admin123";   // change this to your own password
+// ─────────────────────────────────────────────────────────────────
+
+const GROUP_STYLES = {
+  "project management":   { bg:"#E6F1FB", fg:"#0C447C", dot:"#378ADD" },
+  "ai & technology":      { bg:"#EEEDFE", fg:"#3C3489", dot:"#7F77DD" },
+  "supply chain":         { bg:"#E1F5EE", fg:"#085041", dot:"#1D9E75" },
+  "communication skills": { bg:"#FAEEDA", fg:"#633806", dot:"#BA7517" },
+};
+
+const MEMBERS = {
+  "project management":   ["Omar","Amr","Kareem"],
+  "ai & technology":      ["Gaser","Mousa","Badawy","Abosrie"],
+  "supply chain":         ["Bakar","Mohsen"],
+  "communication skills": ["Aly","Adam","Mohannad"],
+};
+
+function styleFor(name) {
+  const key = name.toLowerCase().trim();
+  return GROUP_STYLES[key] || { bg:"#F1EFE8", fg:"#444441", dot:"#888780" };
+}
+function membersFor(name) {
+  return MEMBERS[name.toLowerCase().trim()] || [];
+}
+function ini(n) { return n.slice(0,2).toUpperCase(); }
+
+let lastUpdated = null;
+
+async function loadData() {
+  if (CSV_URL === "PASTE_YOUR_CSV_URL_HERE") {
+    showSetupMessage(); return;
+  }
+  renderLoading();
+  try {
+    const res = await fetch(CSV_URL + "&t=" + Date.now());
+    const text = await res.text();
+    const rows = parseCSV(text);
+    render(rows);
+    lastUpdated = new Date();
+    document.getElementById("footer").textContent =
+      "Last updated: " + lastUpdated.toLocaleTimeString("en-GB");
+  } catch(e) {
+    renderError();
+  }
+}
+
+function parseCSV(text) {
+  const allRows = text.trim().split("\n");
+  // Find the real header row — it contains "Week" and "Group"
+  let dataStart = 0;
+  for (let i = 0; i < allRows.length; i++) {
+    const lower = allRows[i].toLowerCase();
+    if (lower.includes("week") && lower.includes("group")) {
+      dataStart = i + 1; // start reading from the row AFTER the header
+      break;
+    }
+  }
+  return allRows.slice(dataStart)
+    .map(line => {
+      const cols = line.split(",").map(c => c.replace(/^"|"$/g,"").trim());
+      return {
+        week:     cols[0] || "",
+        date:     cols[1] || "",
+        group:    cols[2] || "",
+        members:  cols[3] || "",
+        status:   (cols[4] || "").toUpperCase().trim(),
+        override: cols[5] || "",
+        notes:    cols[6] || "",
+      };
+    })
+    .filter(r => r.week.toLowerCase().startsWith("wk") && r.group);
+}
+
+function render(rows) {
+  const curIdx  = rows.findIndex(r => r.status === "CURRENT");
+  const nextIdx = curIdx >= 0 ? curIdx + 1 : -1;
+
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+
+  // ── HERO ──
+  const cur = curIdx >= 0 ? rows[curIdx] : null;
+  const heroCard = document.createElement("div");
+  heroCard.className = "card hero";
+  if (cur) {
+    const gname  = cur.override || cur.group;
+    const style  = styleFor(gname);
+    const mems   = membersFor(gname);
+    heroCard.innerHTML = `
+      <div class="hero-eyebrow">Presenting this Wednesday</div>
+      <div class="hero-group" style="color:${style.fg}">${gname}</div>
+      <div class="hero-date">${cur.date}</div>
+      <div class="hero-members">
+        ${mems.map(m=>`<div class="member-block">
+          <div class="av" style="background:${style.bg};color:${style.fg}">${ini(m)}</div>
+          <span class="av-name">${m}</span>
+        </div>`).join("")}
+      </div>
+      ${cur.notes ? `<div style="margin-top:1rem;font-size:13px;color:var(--muted);font-style:italic">${cur.notes}</div>` : ""}`;
+  } else {
+    heroCard.innerHTML = `<div class="hero-eyebrow">No current week set</div>
+      <div class="hero-group" style="color:var(--muted)">—</div>
+      <div class="hero-date">Set STATUS to CURRENT in Google Sheets</div>`;
+  }
+  app.appendChild(heroCard);
+
+  // ── GROUP CARDS ──
+  const allGroups = [...new Set(rows.map(r => (r.override || r.group).toLowerCase().trim()))];
+  const groupGrid = document.createElement("div");
+  groupGrid.className = "groups-grid";
+
+  const uniqueGroups = ["Project management","AI & technology","Supply chain","Communication skills"];
+  uniqueGroups.forEach(gname => {
+    const style = styleFor(gname);
+    const mems  = membersFor(gname);
+    const key   = gname.toLowerCase().trim();
+    const isCur  = cur && (cur.override||cur.group).toLowerCase().trim() === key;
+    const isNext = !isCur && nextIdx >= 0 && (rows[nextIdx].override||rows[nextIdx].group).toLowerCase().trim() === key;
+    const doneCount = rows.filter(r => r.status==="DONE" && (r.override||r.group).toLowerCase().trim()===key).length;
+
+    const badge = isCur  ? `<span class="badge b-now">This week</span>`
+                : isNext ? `<span class="badge b-next">Up next</span>`
+                : doneCount > 0 ? `<span class="badge b-done">Done ${doneCount}x</span>` : "";
+
+    const card = document.createElement("div");
+    card.className = "gcard" + (isCur ? " is-now" : "");
+    card.innerHTML = `
+      <div class="gcard-top">
+        <div><div class="gcard-name">${gname}</div><div class="gcard-count">${mems.length} members</div></div>
+        ${badge}
+      </div>
+      <div class="pills">
+        ${mems.map(m=>`<div class="pill" style="background:${style.bg}">
+          <div class="av av-sm" style="background:${style.bg};color:${style.fg}">${ini(m)}</div>
+          <span style="color:${style.fg}">${m}</span>
+        </div>`).join("")}
+      </div>`;
+    groupGrid.appendChild(card);
+  });
+  app.appendChild(groupGrid);
+
+  // ── TIMELINE ──
+  const tlCard = document.createElement("div");
+  tlCard.className = "card";
+  tlCard.innerHTML = `<div class="card-label">Full rotation — all Wednesdays</div>`;
+  rows.forEach((r, i) => {
+    const isCur  = i === curIdx;
+    const isPast = r.status === "DONE" || i < curIdx;
+    const gname  = r.override || r.group;
+    const style  = styleFor(gname);
+
+    const badge = isCur  ? `<span class="badge b-now">This week</span>`
+                : isPast ? `<span class="badge b-done">Done</span>` : "";
+
+    const item = document.createElement("div");
+    item.className = "tl-item" + (isCur ? " tl-cur" : isPast ? " tl-past" : "");
+    item.innerHTML = `
+      <span class="tl-wk">${r.week}</span>
+      <span class="tl-date">${r.date}</span>
+      <div class="tl-dot" style="background:${style.dot}"></div>
+      <span class="tl-name">${gname}</span>
+      ${r.notes ? `<span class="tl-note">${r.notes}</span>` : ""}
+      ${badge}`;
+    tlCard.appendChild(item);
+
+    if (i < rows.length - 1) {
+      const sep = document.createElement("div");
+      sep.className = "tl-sep";
+      tlCard.appendChild(sep);
+    }
+  });
+  app.appendChild(tlCard);
+}
+
+function renderLoading() {
+  document.getElementById("app").innerHTML = `<div class="card"><div class="state-box">
+    <div class="spinner"></div><p>Loading schedule...</p></div></div>`;
+}
+
+function renderError() {
+  document.getElementById("app").innerHTML = `<div class="card"><div class="state-box">
+    <div class="icon">⚠</div>
+    <p>Could not load the schedule.<br>Check the CSV URL in the HTML file or try refreshing.</p>
+  </div></div>`;
+}
+
+function showSetupMessage() {
+  document.getElementById("app").innerHTML = `<div class="card"><div class="state-box">
+    <div class="icon">⚙</div>
+    <p><strong>Setup required</strong><br><br>
+    Open this HTML file in a text editor and replace<br>
+    <code style="background:#F1EFE8;padding:2px 6px;border-radius:4px;font-size:12px">PASTE_YOUR_CSV_URL_HERE</code><br>
+    with your Google Sheets CSV publish URL.<br><br>
+    Follow the <strong>Setup Guide</strong> sheet in the Excel file.</p>
+  </div></div>`;
+}
+
+// ── ADMIN ──
+function openAdmin() {
+  document.getElementById("modal").classList.add("open");
+  document.getElementById("pw").focus();
+}
+function closeModal() {
+  document.getElementById("modal").classList.remove("open");
+  document.getElementById("pw").value = "";
+  document.getElementById("err").style.display = "none";
+}
+function tryLogin() {
+  if (document.getElementById("pw").value === ADMIN_PASS) {
+    closeModal();
+    const bar = document.getElementById("admin-bar");
+    bar.classList.add("show");
+    document.getElementById("sheets-link").href = SHEETS_URL;
+  } else {
+    document.getElementById("err").style.display = "block";
+  }
+}
+
+// Auto-refresh every 60 seconds
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
