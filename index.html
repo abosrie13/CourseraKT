@@ -236,8 +236,13 @@ function parseCSVLine(line) {
 
 function findHeaderIndex(rows) {
   return rows.findIndex(cols => {
-    const joined = cols.map(normalizeKey).join(" |");
-    return joined.includes("week") && (joined.includes("group") || joined.includes("status") || joined.includes("date"));
+    const normalized = cols.map(normalizeKey);
+    const hasWeek = normalized.includes("week");
+    const hasDate = normalized.includes("date");
+    const hasGroup = normalized.includes("group") || normalized.includes("override group");
+    const hasStatus = normalized.includes("status");
+    const matchedHeaders = [hasWeek, hasDate, hasGroup, hasStatus].filter(Boolean).length;
+    return hasWeek && hasDate && hasGroup && matchedHeaders >= 3;
   });
 }
 
